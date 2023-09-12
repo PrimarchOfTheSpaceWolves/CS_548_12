@@ -30,6 +30,8 @@ import cv2
 import pandas
 import sklearn
 from huggingface_hub import model_info
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 
 ###############################################################################
 # MAIN
