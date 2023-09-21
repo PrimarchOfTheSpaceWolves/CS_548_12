@@ -3,7 +3,14 @@ import numpy as np
 import cv2
 from tensorflow.keras.datasets import mnist,cifar10
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import InputLayer,Dense,Flatten
+from tensorflow.keras.layers import (InputLayer,
+                                     Dense,
+                                     Flatten,
+                                     Conv2D,
+                                     MaxPooling2D,
+                                     Add)
+from tensorflow.keras.models import Model
+from tensorflow.keras import Input
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -32,11 +39,58 @@ def main():
     print("x_test AFTER:", x_test.shape)
     print("Image type AFTER:", x_train.dtype)
     
+    '''
     model = Sequential()
     model.add(InputLayer(input_shape=x_train.shape[1:]))
+    model.add(Conv2D(32, kernel_size=3,
+                    padding="same", 
+                    activation="relu"))
+    model.add(Conv2D(32, kernel_size=3, 
+                     padding="same", 
+                     activation="relu"))
+    model.add(MaxPooling2D(2))
+    model.add(Conv2D(64, kernel_size=3, 
+                     padding="same", 
+                     activation="relu"))
+    model.add(Conv2D(64, kernel_size=3, 
+                     padding="same", 
+                     activation="relu"))
+    model.add(MaxPooling2D(2))          
+          
     model.add(Flatten())
     model.add(Dense(32, activation="relu"))
     model.add(Dense(10, activation="softmax"))
+    '''
+    
+    my_input = Input(shape=x_train.shape[1:])
+    x = Conv2D(32, kernel_size=3,
+                    padding="same", 
+                    activation="relu")(my_input)
+    
+    x = Conv2D(32, kernel_size=3, 
+                     padding="same", 
+                     activation="relu")(x)
+    
+    x = MaxPooling2D(2)(x)
+    
+    alt_x = Dense(64)(x)
+    
+    x = Conv2D(64, kernel_size=3, 
+                     padding="same", 
+                     activation="relu")(x)
+    x = Conv2D(64, kernel_size=3, 
+                     padding="same", 
+                     activation="relu")(x)
+    
+    x = Add()([x,alt_x])
+    
+    x = MaxPooling2D(2)(x)        
+          
+    x = Flatten()(x)
+    x = Dense(32, activation="relu")(x)
+    my_output = Dense(10, activation="softmax")(x)
+    
+    model = Model(inputs=my_input, outputs=my_output)
     
     model.summary()
     
