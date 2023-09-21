@@ -1,15 +1,15 @@
 import tensorflow as tf
 import numpy as np
 import cv2
-from tensorflow.keras.datasets import mnist
+from tensorflow.keras.datasets import mnist,cifar10
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import InputLayer,Dense,Flatten
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 
 def main():
     print("HELLO")
-    (x_train, y_train), (x_test, y_test) = mnist.load_data()
+    (x_train, y_train), (x_test, y_test) = cifar10.load_data()
     
     print("x_train:", x_train.shape)
     print("x_test:", x_test.shape)
@@ -31,6 +31,31 @@ def main():
     print("x_train AFTER:", x_train.shape)
     print("x_test AFTER:", x_test.shape)
     print("Image type AFTER:", x_train.dtype)
+    
+    model = Sequential()
+    model.add(InputLayer(input_shape=x_train.shape[1:]))
+    model.add(Flatten())
+    model.add(Dense(32, activation="relu"))
+    model.add(Dense(10, activation="softmax"))
+    
+    model.summary()
+    
+    model.compile(optimizer="adam",
+                  loss="sparse_categorical_crossentropy",
+                  metrics=["accuracy"])
+    
+    model.fit(x_train, y_train, batch_size=32, epochs=5)
+    
+    train_scores = model.evaluate(x_train, y_train, 
+                                  batch_size=128)
+    test_scores = model.evaluate(x_test, y_test,
+                                 batch_size=128)
+    
+    print("TRAIN:", train_scores)
+    print("TEST:", test_scores)
+    
+    
+    
     
     
         
