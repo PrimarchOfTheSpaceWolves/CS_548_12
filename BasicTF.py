@@ -23,11 +23,43 @@ def load_catdog_filenames(basedir):
     train_list, test_list = train_test_split(all_filenames,
                                              train_size=0.70,
                                              random_state=42)
-    return train_list, test_list
+    
+    train_ds = tf.data.Dataset.from_tensor_slices(train_list)
+    test_ds = tf.data.Dataset.from_tensor_slices(test_list)
+    
+    def load_image(x):
+        if tf.strings.regex_full_match(x, "dog.*"):
+            label = 0
+        else:
+            label = 1
+        rawdata = tf.io.read_file(basedir + "/" + x)
+        image = tf.io.decode_jpeg(rawdata)
+        image = tf.image.convert_image_dtype(image, tf.float32)
+        image = tf.image.resize(image, (32,32))
+        return image, label
+    
+    train_ds = train_ds.map(load_image)
+    test_ds = test_ds.map(load_image)
+        
+    
+    train_iter = iter(train_ds)
+    
+    for _ in range(5):
+        x = next(train_iter)
+        image = x[0]
+        label = x[1]
+        image = image.numpy()
+        label = label.numpy()
+        print(image.shape, label)
+        
+    exit(1)
+    
+    return train_ds, test_ds
 
 def main():
     
     train_list, test_list = load_catdog_filenames("../catdog")
+    
     print(train_list)
     
     print("HELLO")
