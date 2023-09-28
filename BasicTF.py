@@ -8,13 +8,28 @@ from tensorflow.keras.layers import (InputLayer,
                                      Flatten,
                                      Conv2D,
                                      MaxPooling2D,
+                                     Lambda,
                                      Add)
 from tensorflow.keras.models import Model
 from tensorflow.keras import Input
+from tensorflow.keras.applications.vgg19 import VGG19
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
+import os
+from sklearn.model_selection import train_test_split
+
+def load_catdog_filenames(basedir):
+    all_filenames = os.listdir(basedir)
+    train_list, test_list = train_test_split(all_filenames,
+                                             train_size=0.70,
+                                             random_state=42)
+    return train_list, test_list
 
 def main():
+    
+    train_list, test_list = load_catdog_filenames("../catdog")
+    print(train_list)
+    
     print("HELLO")
     (x_train, y_train), (x_test, y_test) = cifar10.load_data()
     
@@ -39,6 +54,25 @@ def main():
     print("x_test AFTER:", x_test.shape)
     print("Image type AFTER:", x_train.dtype)
     
+    train_ds = tf.data.Dataset.from_tensor_slices(
+                    (x_train,y_train)
+                )
+    test_ds = tf.data.Dataset.from_tensor_slices(
+                    (x_test, y_test)
+                )
+    
+    train_cnt = train_ds.cardinality()
+    print("Number of training samples:", train_cnt)
+    train_ds = train_ds.shuffle(train_cnt)
+    
+    train_ds = train_ds.batch(64)
+    
+    test_ds = test_ds.batch(64)
+    
+    #for image,label in train_ds:
+    #    print("IMAGE:", image.numpy().shape)
+    #    print("LABEL:", label.numpy().shape)
+            
     '''
     model = Sequential()
     model.add(InputLayer(input_shape=x_train.shape[1:]))
@@ -92,13 +126,46 @@ def main():
     
     model = Model(inputs=my_input, outputs=my_output)
     
+    
+    base_model = VGG19(weights="imagenet", include_top=False)
+    for layer in base_model.layers:
+        layer.trainable = False
+        
+    true_input = Input(shape=x_train.shape[1:])
+    resized = Lambda(input_shape=x_train.shape[1:],
+                     function=lambda images: 
+                         tf.image.resize(images,[224,224]))(true_input)
+    x = base_model(resized)
+    x = Flatten()(x)
+    x = Dense(1024, activation="relu")(x)
+    x = Dense(1024, activation="relu")(x)
+    x = Dense(10, activation="softmax")(x)
+    
+    model = Model(inputs=true_input, outputs=x)
+    
     model.summary()
     
-    model.compile(optimizer="adam",
+    optimizer = tf.keras.optimizers.Adam()
+    model.compile(optimizer=optimizer,
                   loss="sparse_categorical_crossentropy",
                   metrics=["accuracy"])
     
-    model.fit(x_train, y_train, batch_size=32, epochs=5)
+    checkpoint = tf.train.Checkpoint(optimizer=optimizer, 
+                                     model=model)
+    manager = tf.train.CheckpointManager(
+    checkpoint, directory="/tmp/model", max_to_keep=5)
+    status = checkpoint.restore(manager.latest_checkpoint)
+       
+    
+    tb_callback = tf.keras.callbacks.TensorBoard(
+                    log_dir="logs",
+                    histogram_freq=1)
+        
+    #model.fit(x_train, y_train, batch_size=32, epochs=5,
+    #          callbacks=[tb_callback])
+    model.fit(train_ds, epochs=5,
+              validation_data=test_ds,
+              callbacks=[tb_callback])
     
     train_scores = model.evaluate(x_train, y_train, 
                                   batch_size=128)
