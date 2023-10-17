@@ -7,3 +7,4 @@ ground/
 input/
 Pipfile.lock
 logs/
+data/
