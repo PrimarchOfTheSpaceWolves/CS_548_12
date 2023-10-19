@@ -9,7 +9,12 @@ import os
 from sklearn.model_selection import train_test_split
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
+from torchvision.models import (list_models, 
+                                get_model, 
+                                get_weight, 
+                                get_model_weights)
 
+#print(list_models())
 
 class NeuralNetwork(nn.Module):
     def __init__(self, class_cnt, input_channels):
@@ -62,8 +67,23 @@ def main():
     test_dataloader = DataLoader(testing_dataset,
                                  batch_size=batch_size)
     
-    model = NeuralNetwork(class_cnt, input_channels)
+    #model = NeuralNetwork(class_cnt, input_channels)
     
+    model = get_model("vgg19", weights="DEFAULT")
+    weights = get_weight("VGG19_Weights.DEFAULT")
+    preprocess = weights.transforms()
+    
+    for param in model.parameters():
+        param.requires_grad = False
+    
+    feature_cnt = model.classifier[0].in_features
+    
+    model.classifier = nn.Sequential(
+        nn.Linear(feature_cnt, 32),
+        nn.ReLU(),
+        nn.Linear(32, class_cnt))
+    
+        
     device = ("cuda" if torch.cuda.is_available()
               else "mps" if torch.backends.mps.is_available()
               else "cpu")
@@ -80,6 +100,8 @@ def main():
         size = len(dataloader.dataset)
         model.train()
         for batch, (X,y) in enumerate(dataloader):
+            X = preprocess(X)
+            
             X = X.to(device)
             y = y.to(device)
             
@@ -99,21 +121,33 @@ def main():
                 
     def test(dataloader, model, loss_fn, data_name):
         size = len(dataloader.dataset)
+        num_batches = len(dataloader)
         model.eval()
         test_loss = 0
         correct = 0
         with torch.no_grad():
             for X,y in dataloader:
+                X = preprocess(X)
                 X = X.to(device)
                 y = y.to(device)
                 pred = model(X)
                 test_loss += loss_fn(pred, y).item()
-                
-                
+                correct += (pred.argmax(1) == y).type(torch.float).sum().item()
+        test_loss /= num_batches
+        correct /= size
+        print(data_name, "EVAL: Loss:", test_loss,
+              " Acc:", (correct*100))
+        return test_loss
                 
     for epoch in range(total_epochs):
         print("** EPOCH", (epoch+1), "***********")
         train(train_dataloader, model, loss_fn, optimizer)
+        
+        train_loss = test(train_dataloader, model,
+                          loss_fn, "TRAIN")
+        test_loss = test(test_dataloader, model, loss_fn,
+                         "TEST")
+    
         
             
 
