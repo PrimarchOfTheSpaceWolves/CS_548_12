@@ -8,3 +8,4 @@ input/
 Pipfile.lock
 logs/
 data/
+pylogs/

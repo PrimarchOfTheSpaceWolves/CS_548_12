@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader
 from torchvision import datasets
 from torchvision.transforms import v2
 import cv2
@@ -13,8 +13,53 @@ from torchvision.models import (list_models,
                                 get_model, 
                                 get_weight, 
                                 get_model_weights)
+from torch.utils.tensorboard import SummaryWriter
+from sklearn.model_selection import train_test_split
+from torchvision.io import read_image
 
 #print(list_models())
+
+class CatDogDataset(Dataset):
+    def __init__(self, base_dir, is_training,
+                 transform=None, target_transform=None):
+        super().__init__()
+        all_filenames = os.listdir(base_dir)
+        self.base_dir = base_dir
+        
+        train_list, test_list = train_test_split(
+                                    all_filenames,
+                                    train_size=0.70,
+                                    random_state=42)
+                
+        if is_training:
+            self.filenames = train_list
+        else:
+            self.filenames = test_list
+            
+        self.transform = transform
+        self.target_transform = target_transform
+                
+    def __len__(self):
+        return len(self.filenames)
+    
+    def __getitem__(self, idx):
+        filepath = os.path.join(self.base_dir, 
+                                self.filenames[idx])
+        image = read_image(filepath)
+        
+        if "dog" in self.filenames[idx]:
+            label = 0
+        else:
+            label = 1
+            
+        if self.transform is not None:
+            image = self.transform(image)
+        
+        if self.target_transform is not None:
+            label = self.target_transform(label)
+        
+        return image, label
+    
 
 class NeuralNetwork(nn.Module):
     def __init__(self, class_cnt, input_channels):
@@ -47,28 +92,62 @@ class NeuralNetwork(nn.Module):
         return logits
 
 def main():
+    writer = SummaryWriter(log_dir="./pylogs")
+    
     data_transform = v2.Compose([
+        v2.Resize((32,32)),
         v2.ToImageTensor(),
         v2.ConvertImageDtype()
     ])
     
+    aug_transform = v2.Compose([
+        v2.Resize((32,32)),
+        v2.RandomHorizontalFlip(p=0.5),
+        v2.ToImageTensor(),
+        v2.ConvertImageDtype()
+    ])
+    
+    '''
     class_cnt = 10
     input_channels = 3
     training_dataset = datasets.CIFAR10("data", train=True,
                                      download=True,
+                                     transform=aug_transform)
+    
+    base_training_dataset = datasets.CIFAR10("data", train=True,
+                                     download=True,
                                      transform=data_transform)
+    
     testing_dataset = datasets.CIFAR10("data", train=False,
                                     download=True,
+                                    transform=data_transform)
+    '''
+    
+    class_cnt = 2
+    input_channels = 3
+    training_dataset = CatDogDataset(is_training=True,  
+                                     base_dir="../catdog",                                   
+                                     transform=aug_transform)
+    
+    base_training_dataset = CatDogDataset(is_training=True, 
+                                          base_dir="../catdog",                                     
+                                     transform=data_transform)
+    
+    testing_dataset = CatDogDataset(is_training=False, 
+                                     base_dir="../catdog",                                    
                                     transform=data_transform)
     
     batch_size = 64
     train_dataloader = DataLoader(training_dataset,
                                   batch_size=batch_size)
+    base_train_dataloader = DataLoader(base_training_dataset,
+                                  batch_size=batch_size)
     test_dataloader = DataLoader(testing_dataset,
                                  batch_size=batch_size)
     
-    #model = NeuralNetwork(class_cnt, input_channels)
+    model = NeuralNetwork(class_cnt, input_channels)
     
+    '''
     model = get_model("vgg19", weights="DEFAULT")
     weights = get_weight("VGG19_Weights.DEFAULT")
     preprocess = weights.transforms()
@@ -82,7 +161,7 @@ def main():
         nn.Linear(feature_cnt, 32),
         nn.ReLU(),
         nn.Linear(32, class_cnt))
-    
+    '''
         
     device = ("cuda" if torch.cuda.is_available()
               else "mps" if torch.backends.mps.is_available()
@@ -100,7 +179,7 @@ def main():
         size = len(dataloader.dataset)
         model.train()
         for batch, (X,y) in enumerate(dataloader):
-            X = preprocess(X)
+            #X = preprocess(X)
             
             X = X.to(device)
             y = y.to(device)
@@ -127,7 +206,7 @@ def main():
         correct = 0
         with torch.no_grad():
             for X,y in dataloader:
-                X = preprocess(X)
+                #X = preprocess(X)
                 X = X.to(device)
                 y = y.to(device)
                 pred = model(X)
@@ -143,10 +222,18 @@ def main():
         print("** EPOCH", (epoch+1), "***********")
         train(train_dataloader, model, loss_fn, optimizer)
         
-        train_loss = test(train_dataloader, model,
+        train_loss = test(base_train_dataloader, model,
                           loss_fn, "TRAIN")
         test_loss = test(test_dataloader, model, loss_fn,
                          "TEST")
+        
+        writer.add_scalars("Loss",
+                          {
+                             "Train": train_loss,
+                             "Test": test_loss 
+                          }, epoch)
+    writer.flush()
+    writer.close()
     
         
             
