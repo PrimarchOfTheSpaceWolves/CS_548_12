@@ -218,7 +218,18 @@ def main():
               " Acc:", (correct*100))
         return test_loss
                 
-    for epoch in range(total_epochs):
+    checkpoint_freq = 2
+    
+    checkpoint_filename = "checkpoint.pt"
+    start_epoch = 0
+    if os.path.exists(checkpoint_filename):
+        checkpoint = torch.load(checkpoint_filename)
+        start_epoch = checkpoint["epoch"]+1
+        model.load_state_dict(checkpoint["network"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
+        print("Loading previous checkpoint...")
+                            
+    for epoch in range(start_epoch, total_epochs):
         print("** EPOCH", (epoch+1), "***********")
         train(train_dataloader, model, loss_fn, optimizer)
         
@@ -232,6 +243,22 @@ def main():
                              "Train": train_loss,
                              "Test": test_loss 
                           }, epoch)
+        
+        if epoch % checkpoint_freq == 0:
+            save_info = {
+                "epoch": epoch,
+                "network": model.state_dict(),
+                "optimizer": optimizer.state_dict()                
+            }
+            torch.save(save_info, checkpoint_filename)
+            
+    save_info = {
+                "epoch": total_epochs,
+                "network": model.state_dict(),
+                "optimizer": optimizer.state_dict()                
+                }
+    torch.save(save_info, "final_model.pt")
+        
     writer.flush()
     writer.close()
     

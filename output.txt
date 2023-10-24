@@ -1,0 +1,60 @@
+/media/realemj/BAT_DRIVE/CV/lib/python3.10/site-packages/torchvision/datapoints/__init__.py:12: UserWarning: The torchvision.datapoints and torchvision.transforms.v2 namespaces are still Beta. While we do not expect major breaking changes, some APIs may still change according to user feedback. Please submit any feedback you may have in this issue: https://github.com/pytorch/vision/issues/6753, and you can also check out https://github.com/pytorch/vision/issues/7319 to learn more about the APIs that we suspect might involve future changes. You can silence this warning by calling torchvision.disable_beta_transforms_warning().
+  warnings.warn(_BETA_TRANSFORMS_WARNING)
+/media/realemj/BAT_DRIVE/CV/lib/python3.10/site-packages/torchvision/transforms/v2/__init__.py:54: UserWarning: The torchvision.datapoints and torchvision.transforms.v2 namespaces are still Beta. While we do not expect major breaking changes, some APIs may still change according to user feedback. Please submit any feedback you may have in this issue: https://github.com/pytorch/vision/issues/6753, and you can also check out https://github.com/pytorch/vision/issues/7319 to learn more about the APIs that we suspect might involve future changes. You can silence this warning by calling torchvision.disable_beta_transforms_warning().
+  warnings.warn(_BETA_TRANSFORMS_WARNING)
+/media/realemj/BAT_DRIVE/CV/lib/python3.10/site-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.25.2
+  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
+2023-10-24 16:17:17.330599: I tensorflow/core/util/port.cc:110] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2023-10-24 16:17:17.367635: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2023-10-24 16:17:19.424503: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+/media/realemj/BAT_DRIVE/CV/lib/python3.10/site-packages/torchvision/transforms/functional.py:1603: UserWarning: The default value of the antialias parameter of all the resizing transforms (Resize(), RandomResizedCrop(), etc.) will change from None to True in v0.17, in order to be consistent across the PIL and Tensor backends. To suppress this warning, directly pass antialias=True (recommended, future default), antialias=None (current default, which means False for Tensors and True for PIL), or antialias=False (only works on Tensors - PIL will still use antialiasing). This also applies if you are using the inference transforms from the models weights: update the call to weights.transforms(antialias=True).
+  warnings.warn(
+Using device cuda
+NeuralNetwork(
+  (net_stack): Sequential(
+    (0): Conv2d(3, 32, kernel_size=(3, 3), stride=(1, 1))
+    (1): ReLU()
+    (2): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1))
+    (3): ReLU()
+    (4): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (5): Conv2d(32, 64, kernel_size=(3, 3), stride=(1, 1))
+    (6): ReLU()
+    (7): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1))
+    (8): ReLU()
+    (9): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (10): Flatten(start_dim=1, end_dim=-1)
+    (11): Linear(in_features=1600, out_features=256, bias=True)
+    (12): ReLU()
+    (13): Dropout(p=0.2, inplace=False)
+    (14): Linear(in_features=256, out_features=2, bias=True)
+  )
+)
+Loading previous checkpoint...
+** EPOCH 2 ***********
+Loss: 0.6140260100364685  at 64 of 17500
+Loss: 0.5189678072929382  at 6464 of 17500
+Traceback (most recent call last):
+  File "/media/realemj/BAT_DRIVE/REALE/SUNYIT/Classes/Fall2023/CS_548_12_IGT/Inclass/CS_548_12/BasicPT.py", line 269, in <module>
+    main()
+  File "/media/realemj/BAT_DRIVE/REALE/SUNYIT/Classes/Fall2023/CS_548_12_IGT/Inclass/CS_548_12/BasicPT.py", line 234, in main
+    train(train_dataloader, model, loss_fn, optimizer)
+  File "/media/realemj/BAT_DRIVE/REALE/SUNYIT/Classes/Fall2023/CS_548_12_IGT/Inclass/CS_548_12/BasicPT.py", line 181, in train
+    for batch, (X,y) in enumerate(dataloader):
+  File "/media/realemj/BAT_DRIVE/CV/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 633, in __next__
+    data = self._next_data()
+  File "/media/realemj/BAT_DRIVE/CV/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 677, in _next_data
+    data = self._dataset_fetcher.fetch(index)  # may raise StopIteration
+  File "/media/realemj/BAT_DRIVE/CV/lib/python3.10/site-packages/torch/utils/data/_utils/fetch.py", line 51, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/media/realemj/BAT_DRIVE/CV/lib/python3.10/site-packages/torch/utils/data/_utils/fetch.py", line 51, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/media/realemj/BAT_DRIVE/REALE/SUNYIT/Classes/Fall2023/CS_548_12_IGT/Inclass/CS_548_12/BasicPT.py", line 48, in __getitem__
+    image = read_image(filepath)
+  File "/media/realemj/BAT_DRIVE/CV/lib/python3.10/site-packages/torchvision/io/image.py", line 259, in read_image
+    return decode_image(data, mode)
+  File "/media/realemj/BAT_DRIVE/CV/lib/python3.10/site-packages/torchvision/io/image.py", line 236, in decode_image
+    output = torch.ops.image.decode_image(input, mode.value)
+  File "/media/realemj/BAT_DRIVE/CV/lib/python3.10/site-packages/torch/_ops.py", line 502, in __call__
+    return self._op(*args, **kwargs or {})
+KeyboardInterrupt
