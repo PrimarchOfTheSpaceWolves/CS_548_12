@@ -9,3 +9,5 @@ Pipfile.lock
 logs/
 data/
 pylogs/
+catdog/
+checkpoints/

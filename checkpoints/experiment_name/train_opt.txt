@@ -4,7 +4,7 @@
           checkpoints_dir: ./checkpoints                 
            continue_train: False                         
                 crop_size: 256                           
-                 dataroot: ./data                        	[default: None]
+                 dataroot: ./catdog                      	[default: None]
              dataset_mode: unaligned                     
                 direction: AtoB                          
               display_env: main                          
