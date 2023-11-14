@@ -16,6 +16,19 @@ from torchvision.models import (list_models,
 from torch.utils.tensorboard import SummaryWriter
 from sklearn.model_selection import train_test_split
 from torchvision.io import read_image
+from dataclasses import dataclass
+from accelerate import Accelerator, notebook_launcher
+
+
+@dataclass
+class TrainingConfig:
+    train_batch_size = 16
+    eval_batch_size = 16
+    mixed_precision = "fp16"
+    output_dir = "BasicPT"
+    gradient_accumulation_steps = 1
+    start_epoch = 0
+    total_epochs = 10
 
 #print(list_models())
 
@@ -92,6 +105,9 @@ class NeuralNetwork(nn.Module):
         return logits
 
 def main():
+    config = TrainingConfig()
+    
+    
     writer = SummaryWriter(log_dir="./pylogs")
     
     data_transform = v2.Compose([
@@ -137,13 +153,13 @@ def main():
                                      base_dir="../catdog",                                    
                                     transform=data_transform)
     
-    batch_size = 64
+    
     train_dataloader = DataLoader(training_dataset,
-                                  batch_size=batch_size)
+                                  batch_size=config.train_batch_size)
     base_train_dataloader = DataLoader(base_training_dataset,
-                                  batch_size=batch_size)
+                                  batch_size=config.train_batch_size)
     test_dataloader = DataLoader(testing_dataset,
-                                 batch_size=batch_size)
+                                 batch_size=config.eval_batch_size)
     
     model = NeuralNetwork(class_cnt, input_channels)
     
@@ -173,30 +189,34 @@ def main():
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     
-    total_epochs = 10
     
-    def train(dataloader, model, loss_fn, optimizer):
+    
+    def train(dataloader, model, loss_fn, 
+              optimizer, accelerator):
         size = len(dataloader.dataset)
         model.train()
         for batch, (X,y) in enumerate(dataloader):
             #X = preprocess(X)
             
-            X = X.to(device)
-            y = y.to(device)
+            #X = X.to(device)
+            #y = y.to(device)
             
-            pred = model(X)
-            loss = loss_fn(pred, y)
+            with accelerator.accumulate(model):            
+                pred = model(X)
+                loss = loss_fn(pred, y)
+                
+                #loss.backward()
+                accelerator.backward(loss)
+                optimizer.step()
+                optimizer.zero_grad()
             
-            loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
-            
-            if batch % 100 == 0:
-                loss = loss.item()
-                current = (batch+1)*len(X)
-                print("Loss:", loss, 
-                      " at", current, 
-                      "of", size)
+            if accelerator.is_main_process:
+                if batch % 100 == 0:
+                    loss = loss.item()
+                    current = (batch+1)*len(X)
+                    print("Loss:", loss, 
+                        " at", current, 
+                        "of", size)
                 
     def test(dataloader, model, loss_fn, data_name):
         size = len(dataloader.dataset)
@@ -221,48 +241,82 @@ def main():
     checkpoint_freq = 2
     
     checkpoint_filename = "checkpoint.pt"
-    start_epoch = 0
+    config.start_epoch = 0
     if os.path.exists(checkpoint_filename):
         checkpoint = torch.load(checkpoint_filename)
-        start_epoch = checkpoint["epoch"]+1
+        config.start_epoch = checkpoint["epoch"]+1
         model.load_state_dict(checkpoint["network"])
         optimizer.load_state_dict(checkpoint["optimizer"])
         print("Loading previous checkpoint...")
+        
+    def train_loop(config, model, optimizer, 
+                   train_dataloader,
+                   base_train_dataloader,
+                   test_dataloader):
+        
+        accelerator = Accelerator(
+            mixed_precision=config.mixed_precision,
+            gradient_accumulation_steps=config.gradient_accumulation_steps,
+            log_with="tensorboard",
+            project_dir=os.path.join(config.output_dir, "logs")
+        )
+        
+        (model,
+         optimizer,
+         train_dataloader,
+         base_train_dataloader,
+         test_dataloader) = accelerator.prepare(
+                                        model,
+                                        optimizer,
+                                        train_dataloader,
+                                        base_train_dataloader,
+                                        test_dataloader
+                                        )
+         
+        if accelerator.is_main_process:
+            os.makedirs(config.output_dir, exist_ok=True)
+            accelerator.init_trackers("training")                          
                             
-    for epoch in range(start_epoch, total_epochs):
-        print("** EPOCH", (epoch+1), "***********")
-        train(train_dataloader, model, loss_fn, optimizer)
-        
-        train_loss = test(base_train_dataloader, model,
-                          loss_fn, "TRAIN")
-        test_loss = test(test_dataloader, model, loss_fn,
-                         "TEST")
-        
-        writer.add_scalars("Loss",
-                          {
-                             "Train": train_loss,
-                             "Test": test_loss 
-                          }, epoch)
-        
-        if epoch % checkpoint_freq == 0:
-            save_info = {
-                "epoch": epoch,
-                "network": model.state_dict(),
-                "optimizer": optimizer.state_dict()                
-            }
-            torch.save(save_info, checkpoint_filename)
+        for epoch in range(config.start_epoch, config.total_epochs):
+            print("** EPOCH", (epoch+1), "***********")
+            train(train_dataloader, model, 
+                  loss_fn, optimizer, accelerator)
             
-    save_info = {
-                "epoch": total_epochs,
-                "network": model.state_dict(),
-                "optimizer": optimizer.state_dict()                
-                }
-    torch.save(save_info, "final_model.pt")
-        
-    writer.flush()
-    writer.close()
+            if accelerator.is_main_process:
+                train_loss = test(base_train_dataloader, model,
+                                loss_fn, "TRAIN")
+                test_loss = test(test_dataloader, model, loss_fn,
+                                "TEST")
+            
+                accelerator.log({"Loss":
+                                    {
+                                        "Train": train_loss,
+                                        "Test": test_loss 
+                                    }
+                                    }, step=epoch)
+            
+                if epoch % checkpoint_freq == 0:
+                    save_info = {
+                        "epoch": epoch,
+                        "network": model.state_dict(),
+                        "optimizer": optimizer.state_dict()                
+                    }
+                    torch.save(save_info, checkpoint_filename)
+                    
+        if accelerator.is_main_process:       
+            save_info = {
+                        "epoch": config.total_epochs,
+                        "network": model.state_dict(),
+                        "optimizer": optimizer.state_dict()                
+                        }
+            torch.save(save_info, "final_model.pt")
+            
+        #writer.flush()
+        #writer.close()
     
-        
+    args = (config, model, optimizer, train_dataloader,
+            base_train_dataloader, test_dataloader) 
+    notebook_launcher(train_loop, args, num_processes=1)  
             
 
 if __name__ == "__main__":
