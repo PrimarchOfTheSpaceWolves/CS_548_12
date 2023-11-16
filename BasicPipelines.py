@@ -2,6 +2,7 @@ from diffusers import DiffusionPipeline
 from diffusers import EulerDiscreteScheduler
 import torch
 from diffusers.utils import make_image_grid
+from datasets import load_datasets
 
 def main():
     pipeline = DiffusionPipeline.from_pretrained(
